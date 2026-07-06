@@ -1,0 +1,16 @@
+# Deployment for a UGREEN (UGOS) NAS via the Docker app.
+# Data lives in a bind mount so it is visible in the Files app and included
+# in NAS backups.
+services:
+  objectstorage:
+    image: objectstorage:v1
+    container_name: objectstorage
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /volume1/docker/objectstorage/data:/data
+    # The image runs as nonroot (uid 65532) by default, but UGOS creates
+    # bind-mount directories owned by root. Either chown the data dir to
+    # 65532 once, or keep this override:
+    user: "0:0"
