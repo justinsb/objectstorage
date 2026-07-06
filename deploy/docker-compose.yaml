@@ -3,7 +3,7 @@
 # in NAS backups.
 services:
   objectstorage:
-    image: objectstorage:v1
+    image: objectstorage:v2
     container_name: objectstorage
     restart: unless-stopped
     ports:
