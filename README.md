@@ -1,8 +1,9 @@
 # objectstorage
 
-A small object storage server designed to run on a NAS. It speaks (a useful
-subset of) the Google Cloud Storage JSON API, so the official Google Cloud
-client libraries work against it unchanged. S3 support is planned.
+A small object storage server designed to run on a NAS. It speaks useful
+subsets of both the Google Cloud Storage JSON API and the Amazon S3 API over
+one shared store, so the official Google Cloud and AWS clients — and the S3
+ecosystem (rclone, restic, etc.) — work against it unchanged.
 
 ## Design
 
@@ -28,10 +29,10 @@ One server process owns a data directory; run it on the NAS itself.
 
 ```sh
 go build ./cmd/objectstorage
-./objectstorage --data-dir /volume1/objectstorage --listen :8080
+./objectstorage --data-dir /volume1/objectstorage --listen :8080 --s3-listen :8081
 ```
 
-Point the official Go client at it:
+GCS clients (port 8080):
 
 ```sh
 export STORAGE_EMULATOR_HOST=nas.local:8080
@@ -41,7 +42,16 @@ export STORAGE_EMULATOR_HOST=nas.local:8080
 client, err := storage.NewClient(ctx) // picks up STORAGE_EMULATOR_HOST
 ```
 
-## What works (V1)
+S3 clients (port 8081, path-style; any credentials are accepted):
+
+```sh
+AWS_ACCESS_KEY_ID=x AWS_SECRET_ACCESS_KEY=x \
+  aws --endpoint-url http://nas.local:8081 s3 ls
+```
+
+## What works
+
+### GCS (V1)
 
 - Buckets: create / get / list / delete (delete requires empty, 409 otherwise)
 - Objects: upload (single-shot, multipart, and resumable — the Go client uses
@@ -52,8 +62,22 @@ client, err := storage.NewClient(ctx) // picks up STORAGE_EMULATOR_HOST
 - Checksums: crc32c + md5 served via `X-Goog-Hash`; the official client
   verifies downloads end-to-end
 
-Not yet: S3 protocol, auth (trusted-LAN assumption), object copy/rewrite,
-metadata PATCH, versioning. See `docs/research/` for the development journal.
+### S3 (V2)
+
+- Buckets: create / head / list / delete / get-location
+- Objects: put (including aws-chunked streaming bodies with trailing
+  checksums, as sent by modern AWS SDKs), get/head with Range and
+  conditional (`If-Match`/`If-None-Match`) requests, delete (idempotent),
+  batch delete, server-side copy
+- Multipart uploads (initiate / upload part / complete / abort)
+- ListObjects V1 and V2 with prefix, delimiter, pagination, and
+  `encoding-type=url`
+- ETags are the content MD5 (also for multipart objects — friendlier than
+  AWS's part-hash ETags for integrity checking)
+
+Not yet: auth of any kind (trusted-LAN assumption — do not expose to the
+internet), GCS copy/rewrite and metadata PATCH, object versioning, S3
+signature verification. See `docs/research/` for the development journal.
 
 ## Testing
 

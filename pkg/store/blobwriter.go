@@ -12,6 +12,7 @@ import (
 	"hash/crc32"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -202,6 +203,17 @@ func (w *BlobWriter) Commit(name string, opts PutOptions) (*ObjectInfo, error) {
 		Created:        now,
 		Updated:        now,
 	}, nil
+}
+
+// TempFile creates a temporary file in the bucket's tmp directory, for
+// staging data (e.g. multipart upload parts) that will later be streamed
+// into a BlobWriter. The caller owns the file and must remove it.
+func (s *Store) TempFile(bucket string) (*os.File, error) {
+	b, err := s.bucket(bucket)
+	if err != nil {
+		return nil, err
+	}
+	return os.CreateTemp(filepath.Join(b.dir, "tmp"), "part-*")
 }
 
 // PutObject writes a complete object from r. It is a convenience wrapper

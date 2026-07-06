@@ -11,8 +11,12 @@ import (
 	"testing"
 
 	"cloud.google.com/go/storage"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"github.com/justinsb/objectstorage/pkg/gcs"
+	"github.com/justinsb/objectstorage/pkg/s3"
 	"github.com/justinsb/objectstorage/pkg/store"
 
 	"net/http/httptest"
@@ -22,13 +26,15 @@ import (
 // it, but the client API requires one.
 const ProjectID = "test-project"
 
-// Harness runs the server in-process and provides an official GCS client
-// pointed at it.
+// Harness runs the server in-process and provides official GCS and S3
+// clients pointed at it.
 type Harness struct {
-	T       *testing.T
-	Client  *storage.Client
-	DataDir string
-	BaseURL string
+	T        *testing.T
+	Client   *storage.Client
+	S3Client *awss3.Client
+	DataDir  string
+	BaseURL  string
+	S3URL    string
 }
 
 // NewHarness starts a fresh server on a random port with an empty data
@@ -43,8 +49,10 @@ func NewHarness(t *testing.T) *Harness {
 		t.Fatalf("opening store: %v", err)
 	}
 	server := httptest.NewServer(gcs.NewServer(st))
+	s3Server := httptest.NewServer(s3.NewServer(st))
 	t.Cleanup(func() {
 		server.Close()
+		s3Server.Close()
 		st.Close()
 	})
 
@@ -58,7 +66,17 @@ func NewHarness(t *testing.T) *Harness {
 	}
 	t.Cleanup(func() { client.Close() })
 
-	return &Harness{T: t, Client: client, DataDir: dataDir, BaseURL: server.URL}
+	s3Client := awss3.New(awss3.Options{
+		BaseEndpoint: aws.String(s3Server.URL),
+		Region:       "us-east-1",
+		UsePathStyle: true,
+		Credentials:  credentials.NewStaticCredentialsProvider("test", "test", ""),
+	})
+
+	return &Harness{
+		T: t, Client: client, S3Client: s3Client,
+		DataDir: dataDir, BaseURL: server.URL, S3URL: s3Server.URL,
+	}
 }
 
 // MustCreateBucket creates a bucket or fails the test.

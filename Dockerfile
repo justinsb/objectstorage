@@ -13,5 +13,5 @@ COPY --from=build /objectstorage /objectstorage
 # override the container user.
 COPY --from=build --chown=65532:65532 /data /data
 VOLUME /data
-EXPOSE 8080
-ENTRYPOINT ["/objectstorage", "--data-dir=/data", "--listen=:8080"]
+EXPOSE 8080 8081
+ENTRYPOINT ["/objectstorage", "--data-dir=/data", "--listen=:8080", "--s3-listen=:8081"]
