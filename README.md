@@ -79,6 +79,9 @@ Not yet: auth of any kind (trusted-LAN assumption — do not expose to the
 internet), GCS copy/rewrite and metadata PATCH, object versioning, S3
 signature verification. See `docs/research/` for the development journal.
 
+To run it on a NAS without Docker or root, see
+[docs/install-on-a-nas.md](docs/install-on-a-nas.md).
+
 ## Testing
 
 End-to-end tests drive the real `cloud.google.com/go/storage` client against
